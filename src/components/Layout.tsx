@@ -95,7 +95,7 @@ export function Layout({ user, config }: LayoutProps) {
         clearInterval(syncInterval);
       };
     }
-  }, [user]);
+  }, [user?.uid, user?.role]);
 
   const handleLogout = async () => {
     await auth.signOut();

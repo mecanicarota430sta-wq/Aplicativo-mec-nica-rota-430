@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
@@ -21,102 +21,106 @@ import Profile from './pages/Profile';
 import { Layout } from './components/Layout';
 
 export default function App() {
-  const [user, setUser] = useState<UserProfile | null>(null);
-  const [config, setConfig] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState<UserProfile | null>(null);
+    const [config, setConfig] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let unsubscribeAuth: (() => void) | null = null;
-    let unsubscribeProfile: (() => void) | null = null;
-    
-    async function initialize() {
-      try {
-        // Load config first
-        const c = await getSystemConfig();
-        setConfig(c);
+    // Track if lastActive was updated this session to avoid redundant updates
+    const lastActiveUpdatedRef = useRef(false);
 
-        // Listen for auth changes
-        unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
-          if (unsubscribeProfile) {
-            unsubscribeProfile();
-            unsubscribeProfile = null;
-          }
+    useEffect(() => {
+      let unsubscribeAuth: (() => void) | null = null;
+      let unsubscribeProfile: (() => void) | null = null;
+      
+      async function initialize() {
+        try {
+          const c = await getSystemConfig();
+          setConfig(c);
 
-          if (firebaseUser) {
-            // Update lastActive if it's a new day (once per session/auth change)
-            // We do this via a one-time check instead of inside the real-time listener
-            getDoc(doc(db, 'users', firebaseUser.uid)).then(docSnap => {
-              if (docSnap.exists()) {
-                const data = docSnap.data();
-                const lastActive = data.lastActive?.toDate() || new Date(0);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                
-                if (lastActive < today) {
-                  updateDoc(doc(db, 'users', firebaseUser.uid), { 
-                    lastActive: serverTimestamp() 
-                  }).catch(err => console.error("Error updating lastActive:", err));
-                }
-              }
-            }).catch(err => console.error("Error checking lastActive:", err));
+          unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+            if (unsubscribeProfile) {
+              unsubscribeProfile();
+              unsubscribeProfile = null;
+            }
 
-            // Use real-time listener for profile
-            unsubscribeProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
-              if (docSnap.exists()) {
-                const data = docSnap.data();
-                const profile = { uid: docSnap.id, ...data } as UserProfile;
-                
-                // FORCE ADMIN role if email matches bootstrap admin (case-insensitive)
-                const isBootstrap = firebaseUser.email?.toLowerCase() === 'mecanicarota430sta@gmail.com';
-                if (isBootstrap && profile.role !== UserRole.ADMIN) {
-                  console.log("Bootstrap admin detectado com papel incorreto. Corrigindo...");
-                  profile.role = UserRole.ADMIN;
-                }
+            if (firebaseUser) {
+              // Use real-time listener for profile
+              unsubscribeProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
+                if (docSnap.exists()) {
+                  const data = docSnap.data();
+                  const profile = { uid: docSnap.id, ...data } as UserProfile;
+                  
+                  // FORCE ADMIN role if email matches bootstrap admin (case-insensitive)
+                  const isBootstrap = firebaseUser.email?.toLowerCase() === 'mecanicarota430sta@gmail.com';
+                  if (isBootstrap && profile.role !== UserRole.ADMIN) {
+                    profile.role = UserRole.ADMIN;
+                  }
 
-                setUser(profile);
-              } else {
-                console.warn("Perfil não encontrado no Firestore para UID:", firebaseUser.uid);
-                // For admin, we might allow them in if it's the bootstrap email
-                const isBootstrap = firebaseUser.email?.toLowerCase() === 'mecanicarota430sta@gmail.com';
-                if (isBootstrap) {
-                  setUser({ 
-                    uid: firebaseUser.uid, 
-                    email: firebaseUser.email || 'mecanicarota430sta@gmail.com', 
-                    name: "Admin (Sincronizando...)", 
-                    role: UserRole.ADMIN,
-                    points: 0 
-                  } as UserProfile);
+                  // Only update state if data actually changed significantly (avoid loops from timestamp updates)
+                  setUser(prev => {
+                    if (!prev || prev.uid !== profile.uid || prev.role !== profile.role || prev.points !== profile.points || prev.name !== profile.name) {
+                      return profile;
+                    }
+                    return prev; 
+                  });
+
+                  // Update lastActive once per session if needed
+                  if (!lastActiveUpdatedRef.current) {
+                    const lastActive = data.lastActive?.toDate() || new Date(0);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    if (lastActive < today) {
+                      lastActiveUpdatedRef.current = true;
+                      updateDoc(doc(db, 'users', firebaseUser.uid), { 
+                        lastActive: serverTimestamp() 
+                      }).catch(err => console.error("Error updating lastActive:", err));
+                    } else {
+                      lastActiveUpdatedRef.current = true;
+                    }
+                  }
                 } else {
-                  setUser(null);
+                  console.warn("Perfil não encontrado no Firestore para UID:", firebaseUser.uid);
+                  const isBootstrap = firebaseUser.email?.toLowerCase() === 'mecanicarota430sta@gmail.com';
+                  if (isBootstrap) {
+                    setUser({ 
+                      uid: firebaseUser.uid, 
+                      email: firebaseUser.email || 'mecanicarota430sta@gmail.com', 
+                      name: "Admin (Sincronizando...)", 
+                      role: UserRole.ADMIN,
+                      points: 0 
+                    } as UserProfile);
+                  } else {
+                    setUser(null);
+                  }
                 }
-              }
+                setLoading(false);
+              }, (err) => {
+                console.error("Erro ao ouvir perfil:", err);
+                if (firebaseUser.email?.toLowerCase() === 'mecanicarota430sta@gmail.com') {
+                   setUser({ 
+                      uid: firebaseUser.uid, 
+                      email: firebaseUser.email || 'mecanicarota430sta@gmail.com', 
+                      name: "Admin (Modo Recuperação)", 
+                      role: UserRole.ADMIN,
+                      points: 0 
+                    } as UserProfile);
+                }
+                setLoading(false);
+              });
+            } else {
+              setUser(null);
               setLoading(false);
-            }, (err) => {
-              console.error("Erro ao ouvir perfil:", err);
-              // Recovery for admin
-              if (firebaseUser.email?.toLowerCase() === 'mecanicarota430sta@gmail.com') {
-                 setUser({ 
-                    uid: firebaseUser.uid, 
-                    email: firebaseUser.email || 'mecanicarota430sta@gmail.com', 
-                    name: "Admin (Modo Recuperação)", 
-                    role: UserRole.ADMIN,
-                    points: 0 
-                  } as UserProfile);
-              }
-              setLoading(false);
-            });
-          } else {
-            setUser(null);
-            setLoading(false);
-          }
-        });
-      } catch (error) {
-        console.error("Error initializing app:", error);
-        setLoading(false);
+              lastActiveUpdatedRef.current = false;
+            }
+          });
+        } catch (error) {
+          console.error("Error initializing app:", error);
+          setLoading(false);
+        }
       }
-    }
-    
-    initialize();
+      
+      initialize();
     
     return () => {
       if (unsubscribeAuth) unsubscribeAuth();
