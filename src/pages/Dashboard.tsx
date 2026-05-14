@@ -168,7 +168,7 @@ export default function Dashboard({ user }: { user: UserProfile }) {
       </header>
 
       {/* Primary Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatItem 
           icon={<DollarSign className="text-emerald-600" />} 
           label="Faturamento Mês" 
@@ -353,13 +353,13 @@ export default function Dashboard({ user }: { user: UserProfile }) {
 
 function StatItem({ icon, label, value, subValue }: { icon: React.ReactNode, label: string, value: string, subValue: React.ReactNode }) {
   return (
-    <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 transition-all">
-      <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center mb-6">
+    <div className="bg-white p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 transition-all">
+      <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-50 rounded-2xl flex items-center justify-center mb-4 md:mb-6">
         {icon}
       </div>
       <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">{label}</p>
-      <h3 className="text-2xl font-display font-black text-gray-900">{value}</h3>
-      <div className="mt-4 text-[10px] font-bold text-gray-400 tracking-tight">
+      <h3 className="text-xl md:text-2xl font-display font-black text-gray-900">{value}</h3>
+      <div className="mt-3 md:mt-4 text-[10px] font-bold text-gray-400 tracking-tight">
         {subValue}
       </div>
     </div>
