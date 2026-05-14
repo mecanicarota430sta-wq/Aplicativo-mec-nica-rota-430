@@ -46,7 +46,6 @@ const webDb = getWebFirestore(webApp, (firebaseConfig as any).firestoreDatabaseI
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
 
   app.use(express.json());
 
@@ -151,8 +150,10 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT} [${process.env.NODE_ENV || 'development'}]`);
+  const port = parseInt(process.env.PORT || '3000', 10);
+
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`Server running on http://0.0.0.0:${port} [${process.env.NODE_ENV || 'development'}]`);
   });
 }
 
