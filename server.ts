@@ -1,6 +1,6 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
+// import { createServer as createViteServer } from "vite"; // Removed static import
 import { initializeApp as initializeAdminApp, getApps as getAdminApps } from "firebase-admin/app";
 import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
 import admin from "firebase-admin"; // Still needed for FieldValue
@@ -52,6 +52,7 @@ async function startServer() {
 
   // API Route for Push Notifications
   app.post("/api/notify", async (req, res) => {
+    getDb(); // Ensure Firebase Admin is initialized
     const { tokens, title, body, data } = req.body;
 
     if (!tokens || tokens.length === 0) {
@@ -75,6 +76,7 @@ async function startServer() {
 
   // API Route for User Lookup by CPF
   app.post("/api/check-cpf", async (req, res) => {
+    getDb(); // Ensure Firebase Admin is initialized
     const { cpf } = req.body;
     if (!cpf) return res.status(400).json({ error: "CPF required" });
 
@@ -113,22 +115,34 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    // In production, serve from the same directory as the server file since it's bundled in dist/
+    const distPath = __dirname;
+    console.log(`[Production] Serving static files from: ${distPath}`);
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const indexPath = path.join(distPath, 'index.html');
+      res.sendFile(indexPath, (err) => {
+        if (err) {
+          console.error(`[Production] Error sending index.html from ${indexPath}:`, err);
+          res.status(500).send("Error loading application");
+        }
+      });
     });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Server running on http://localhost:${PORT} [${process.env.NODE_ENV || 'development'}]`);
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("Critical error starting server:", err);
+  process.exit(1);
+});
