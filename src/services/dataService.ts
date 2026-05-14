@@ -98,17 +98,17 @@ export async function syncReminders(): Promise<void> {
           clientId: rem.client.uid,
           clientName: rem.client.name,
           clientPhone: rem.client.phone,
-          vehicleId: rem.vehicle?.id,
-          vehiclePlate: rem.vehicle?.licensePlate,
-          vehicleModel: rem.vehicle?.model,
+          vehicleId: rem.vehicle?.id || null,
+          vehiclePlate: rem.vehicle?.licensePlate || null,
+          vehicleModel: rem.vehicle?.model || null,
           type: rem.type || 'MAINTENANCE',
           serviceName: rem.serviceName,
           status: 'PENDING',
           scheduledDate: serverTimestamp(),
           lastServiceDate: Timestamp.fromDate(rem.lastServiceDate),
           lastMileage: rem.lastMileage,
-          dueMonths: rem.dueMonths,
-          dueKm: rem.dueKm,
+          dueMonths: rem.dueMonths || null,
+          dueKm: rem.dueKm || null,
           createdAt: serverTimestamp()
         };
         batch.set(reminderRef, newRecord, { merge: true });
@@ -139,7 +139,7 @@ export async function syncReminders(): Promise<void> {
     }
 
   } catch (error) {
-    console.error("Error syncing reminders:", error);
+    console.error("[syncReminders] Error during sync:", error);
   }
 }
 
@@ -161,9 +161,11 @@ export async function getRemindersHistory(): Promise<ReminderRecord[]> {
   try {
     const q = query(collection(db, 'reminders'), firestoreOrderBy('scheduledDate', 'desc'));
     const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() } as ReminderRecord));
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as ReminderRecord));
+    console.log(`[getRemindersHistory] Fetched ${data.length} records.`);
+    return data;
   } catch (error) {
-    console.error("Error fetching reminders history:", error);
+    console.error("[getRemindersHistory] Error:", error);
     return [];
   }
 }

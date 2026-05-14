@@ -29,6 +29,7 @@ export default function Reminders() {
       
       // Carrega registros reais do banco
       const history = await getRemindersHistory();
+      console.log("[Reminders.tsx] Fetched history:", history);
       setReminders(history);
 
       // Fetch Pending Redemptions
