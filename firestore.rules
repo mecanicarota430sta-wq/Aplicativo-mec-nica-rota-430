@@ -1,0 +1,243 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global safety net
+    match /{document=**} {
+      allow read, write: if isBootstrapAdmin();
+    }
+
+    // Helper functions
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { 
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    // Robust User Check
+    function isBootstrapAdmin() {
+      return isSignedIn() && (
+        request.auth.token.get('email', '').lower() == 'mecanicarota430sta@gmail.com' ||
+        request.auth.token.get('email', '') == 'mecanicarota430sta@gmail.com'
+      );
+    }
+
+    function isStaff() {
+      return isSignedIn() && (
+        isBootstrapAdmin() || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' || 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'MECHANIC')
+        )
+      );
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isBootstrapAdmin() || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN'
+        )
+      );
+    }
+
+    // --- COLLECTIONS ---
+
+    // USERS COLLECTION
+    match /users/{userId} {
+      allow read, write: if isBootstrapAdmin();
+      
+      allow get: if isSignedIn() && (
+        request.auth.uid == userId || 
+        isStaff() || 
+        (resource != null && existing().get('email', '') == request.auth.token.email) ||
+        // Allow reading to-be-claimed profiles by CPF
+        (resource != null && existing().get('cpf', '') != '' && 
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         existing().get('cpf', '') == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('cpf', ''))
+      );
+      
+      allow list: if isStaff() || (isSignedIn() && (
+        // Allow clients to list staff members
+        resource.data.role in ['ADMIN', 'MECHANIC'] ||
+        // Allow clients to find their own records (migration)
+        resource.data.get('email', '') == request.auth.token.email ||
+        (resource.data.get('cpf', '') != '' && 
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         resource.data.get('cpf', '') == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('cpf', ''))
+      )); 
+      
+      function isValidUser(data) {
+        return data.keys().hasAll(['email', 'name', 'role', 'points']) &&
+               data.email is string && data.email.size() <= 256 &&
+               data.name is string && data.name.size() > 0 && data.name.size() <= 256 &&
+               data.role in ['ADMIN', 'MECHANIC', 'CLIENT'] &&
+               data.points is number;
+      }
+
+      allow create: if isSignedIn() && isValidId(userId) && (
+        isBootstrapAdmin() ||
+        (isValidUser(incoming()) && (
+          isStaff() || 
+          (request.auth.uid == userId && incoming().role == 'CLIENT')
+        ))
+      );
+      
+      allow update: if isSignedIn() && isValidId(userId) && (
+        isBootstrapAdmin() ||
+        isAdmin() ||
+        (isStaff() && isValidUser(incoming())) ||
+        (request.auth.uid == userId && isValidUser(incoming())) ||
+        // Allow self-update if emails match (migration)
+        (resource != null && existing().get('email', '') == request.auth.token.email) ||
+        // Allow claiming if CPF matches
+        (resource != null && existing().get('cpf', '') != '' && incoming().get('cpf', '') == existing().get('cpf', ''))
+      );
+      
+      allow delete: if isAdmin() || (isSignedIn() && (
+        existing().get('email', '') == request.auth.token.email ||
+        (resource != null && existing().get('cpf', '') != '' && 
+         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         existing().get('cpf', '') == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('cpf', ''))
+      ));
+    }
+
+    // VEHICLES COLLECTION
+    match /vehicles/{vehicleId} {
+      allow read, write: if isBootstrapAdmin();
+      
+      allow get: if isSignedIn() && (isStaff() || (resource != null && existing().clientId == request.auth.uid));
+      allow list: if isStaff();
+      allow list: if isSignedIn() && (resource.data.clientId == request.auth.uid || 
+                   get(/databases/$(database)/documents/users/$(resource.data.clientId)).data.email == request.auth.token.email ||
+                   get(/databases/$(database)/documents/users/$(resource.data.clientId)).data.get('cpf', '') == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('cpf', ''));
+      
+      function isValidVehicle(data) {
+        return data.keys().hasAll(['licensePlate', 'brand', 'model', 'clientId', 'type']) &&
+               data.licensePlate is string && data.licensePlate.size() <= 20 &&
+               data.brand is string && data.brand.size() <= 100 &&
+               data.model is string && data.model.size() <= 100 &&
+               data.type in ['CAR', 'MOTORCYCLE'] &&
+               data.clientId is string &&
+               (data.get('mileage', null) == null || data.mileage is number);
+      }
+
+      allow create: if isSignedIn() && isValidId(vehicleId) && isValidVehicle(incoming()) && (
+        isStaff() || 
+        incoming().clientId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(incoming().clientId)).data.email == request.auth.token.email ||
+        get(/databases/$(database)/documents/users/$(incoming().clientId)).data.get('cpf', '') == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('cpf', '')
+      );
+      
+      allow update: if isSignedIn() && isValidId(vehicleId) && isValidVehicle(incoming()) && (
+        isStaff() || 
+        existing().clientId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(existing().clientId)).data.email == request.auth.token.email ||
+        get(/databases/$(database)/documents/users/$(existing().clientId)).data.get('cpf', '') == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('cpf', '')
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    // WORK ORDERS COLLECTION
+    match /workOrders/{osId} {
+      allow read, write: if isBootstrapAdmin();
+      
+      allow get: if isSignedIn() && (isStaff() || existing().clientId == request.auth.uid);
+      allow list: if isStaff();
+      allow list: if isSignedIn() && (resource.data.clientId == request.auth.uid || 
+                   get(/databases/$(database)/documents/users/$(resource.data.clientId)).data.email == request.auth.token.email ||
+                   get(/databases/$(database)/documents/users/$(resource.data.clientId)).data.get('cpf', '') == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('cpf', ''));
+
+      function isValidOS(data) {
+        return data.keys().hasAll(['clientId', 'vehicleId', 'status', 'createdAt', 'services', 'totalValue', 'totalPoints']) &&
+               data.clientId is string &&
+               data.vehicleId is string &&
+               data.services is list &&
+               data.status in ['OPEN', 'IN_PROGRESS', 'WAITING_PARTS', 'COMPLETED', 'CANCELLED'] &&
+               data.totalValue is number &&
+               data.totalPoints is number &&
+               (data.get('seqId', null) == null || data.seqId is string) &&
+               (data.get('currentMileage', null) == null || data.currentMileage is number);
+      }
+
+      allow create: if isStaff() && isValidOS(incoming());
+      
+      allow update: if (isStaff() || 
+                       (isSignedIn() && (
+                         get(/databases/$(database)/documents/users/$(existing().clientId)).data.email == request.auth.token.email ||
+                         get(/databases/$(database)/documents/users/$(existing().clientId)).data.get('cpf', '') == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('cpf', '')
+                       ))) && isValidOS(incoming()) && (
+        (existing().status != 'COMPLETED' || isAdmin() || !isStaff()) &&
+        (
+          incoming().diff(existing()).affectedKeys().hasAny(['status', 'notes', 'photos', 'updatedAt', 'totalValue', 'totalPoints', 'mechanicName', 'currentMileage', 'items', 'seqId', 'clientId']) ||
+          (incoming().status == 'COMPLETED' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'pdfUrl', 'completedAt', 'updatedAt', 'totalValue', 'totalPoints', 'mechanicName', 'currentMileage', 'seqId', 'clientId']))
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /logs/{logId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if false; // Logs are immutable
+    }
+
+    match /catalog/{item} {
+      allow read: if isSignedIn();
+      
+      function isValidService(data) {
+        return data.keys().hasAll(['name', 'price', 'rewardPoints']) &&
+               data.name is string &&
+               data.price is number &&
+               data.rewardPoints is number &&
+               (data.get('maintenanceIntervalMonths', null) == null || data.maintenanceIntervalMonths is number) &&
+               (data.get('maintenanceIntervalKm', null) == null || data.maintenanceIntervalKm is number);
+      }
+
+      allow write: if isAdmin() && isValidService(incoming());
+    }
+    match /prizes/{item} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /redemptions/{id} {
+      allow get: if isSignedIn() && (isStaff() || (resource != null && existing().clientId == request.auth.uid));
+      allow list: if isStaff();
+      allow list: if isSignedIn() && resource.data.clientId == request.auth.uid;
+      allow create: if isSignedIn() && incoming().clientId == request.auth.uid;
+      allow update: if isStaff();
+    }
+
+    match /reminders/{id} {
+      allow read, list: if isStaff();
+      allow write: if isStaff();
+    }
+
+    match /system/config {
+      allow read: if true; // Public configuration
+      allow write: if isAdmin();
+    }
+
+    match /system/counters {
+      allow read: if isStaff();
+      allow write: if isStaff();
+    }
+
+    match /cpf_lookup/{cpfId} {
+      allow get: if true; 
+      allow write: if isStaff() || (isSignedIn() && (incoming().uid == request.auth.uid || existing().uid == request.auth.uid));
+    }
+
+    match /system/status {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+
+    match /announcements/{annId} {
+      allow read: if isSignedIn();
+      allow write: if isStaff();
+    }
+  }
+}

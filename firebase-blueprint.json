@@ -1,0 +1,234 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents any user of the system (Admin, Mechanic, or Client).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "cpf": { "type": "string" },
+        "phone": { "type": "string" },
+        "birthDate": { "type": "string" },
+        "address": { "type": "string" },
+        "role": { "type": "string", "enum": ["ADMIN", "MECHANIC", "CLIENT"] },
+        "points": { "type": "number" },
+        "fcmTokens": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "A vehicle belonging to a client.",
+      "type": "object",
+      "properties": {
+        "licensePlate": { "type": "string" },
+        "brand": { "type": "string" },
+        "model": { "type": "string" },
+        "year": { "type": "number" },
+        "color": { "type": "string" },
+        "mileage": { "type": "number" },
+        "clientId": { "type": "string" }
+      },
+      "required": ["licensePlate", "brand", "model", "clientId"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "Available services in the catalog.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "rewardPoints": { "type": "number" },
+        "maintenanceIntervalMonths": { "type": "number" },
+        "maintenanceIntervalKm": { "type": "number" }
+      },
+      "required": ["name", "price", "rewardPoints"]
+    },
+    "WorkOrder": {
+      "title": "Work Order (O.S.)",
+      "description": "Record of a service performed on a vehicle.",
+      "type": "object",
+      "properties": {
+        "clientId": { "type": "string" },
+        "vehicleId": { "type": "string" },
+        "mechanicId": { "type": "string" },
+        "mechanicName": { "type": "string" },
+        "services": { 
+          "type": "array",
+          "items": { "type": "string" } 
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "description": { "type": "string" },
+              "price": { "type": "number" }
+            }
+          }
+        },
+        "status": { "type": "string", "enum": ["OPEN", "IN_PROGRESS", "WAITING_PARTS", "COMPLETED", "CANCELLED"] },
+        "totalValue": { "type": "number" },
+        "totalPoints": { "type": "number" },
+        "currentMileage": { "type": "number" },
+        "notes": { "type": "string" },
+        "photos": { "type": "array", "items": { "type": "string" } },
+        "pdfUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "completedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientId", "vehicleId", "status", "createdAt"]
+    },
+    "Prize": {
+      "title": "Prize",
+      "description": "Rewards available for redeeming points.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "pointCost": { "type": "number" },
+        "stock": { "type": "number" }
+      },
+      "required": ["name", "pointCost", "stock"]
+    },
+    "Redemption": {
+      "title": "Redemption",
+      "description": "Log of a prize redemption by a client.",
+      "type": "object",
+      "properties": {
+        "clientId": { "type": "string" },
+        "prizeId": { "type": "string" },
+        "pointCost": { "type": "number" },
+        "status": { "type": "string", "enum": ["PENDING", "DELIVERED"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientId", "prizeId", "pointCost", "status", "createdAt"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Communications for customers or internal use.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string", "enum": ["PUBLIC", "INTERNAL"] },
+        "authorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "type", "createdAt"]
+    },
+    "SystemConfig": {
+      "title": "System Config",
+      "description": "Global settings for the application.",
+      "type": "object",
+      "properties": {
+        "logoUrl": { "type": "string" },
+        "shopName": { "type": "string" },
+        "phone": { "type": "string" },
+        "whatsappTemplate": { "type": "string" },
+        "whatsappBirthdayTemplate": { "type": "string" },
+        "oilChangeIntervalMonths": { "type": "number" },
+        "customSystemDate": { "type": "string" }
+      }
+    },
+    "AuditLog": {
+      "title": "Audit Log",
+      "description": "System-wide action logs.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "targetId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "userRole", "action", "details", "timestamp"]
+    },
+    "CpfLookup": {
+      "title": "CPF Lookup",
+      "description": "Public-access lookup for pre-registered clients by CPF.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["uid", "name", "email"]
+    },
+    "Reminder": {
+      "title": "Reminder",
+      "description": "Maintenance or birthday reminders for clients.",
+      "type": "object",
+      "properties": {
+        "clientId": { "type": "string" },
+        "clientName": { "type": "string" },
+        "clientPhone": { "type": "string" },
+        "vehicleId": { "type": "string" },
+        "vehiclePlate": { "type": "string" },
+        "vehicleModel": { "type": "string" },
+        "type": { "type": "string", "enum": ["MAINTENANCE", "BIRTHDAY"] },
+        "serviceName": { "type": "string" },
+        "status": { "type": "string", "enum": ["PENDING", "SENT", "MISSED", "DELAYED_SENT"] },
+        "scheduledDate": { "type": "string", "format": "date-time" },
+        "lastServiceDate": { "type": "string", "format": "date-time" },
+        "lastMileage": { "type": "number" },
+        "dueMonths": { "type": "number" },
+        "dueKm": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientId", "clientName", "type", "status", "scheduledDate"]
+    }
+  },
+  "firestore": {
+    "system": {
+      "schema": "SystemConfig",
+      "description": "App-wide configuration."
+    },
+    "announcements": {
+      "schema": "Announcement",
+      "description": "Announcements and notices."
+    },
+    "users": {
+      "schema": "User",
+      "description": "System users including clients and employees."
+    },
+    "vehicles": {
+      "schema": "Vehicle",
+      "description": "Vehicles registered in the shop."
+    },
+    "catalog": {
+      "schema": "Service",
+      "description": "Catalog of services offered."
+    },
+    "workOrders": {
+      "schema": "WorkOrder",
+      "description": "Main collection for service history."
+    },
+    "prizes": {
+      "schema": "Prize",
+      "description": "Fidelity program rewards."
+    },
+    "redemptions": {
+      "schema": "Redemption",
+      "description": "Record of points spent on prizes."
+    },
+    "reminders": {
+      "schema": "Reminder",
+      "description": "Log of automated or calculated reminders."
+    },
+    "logs": {
+      "schema": "AuditLog",
+      "description": "System audit logs (retained 7 days)."
+    },
+    "cpf_lookup": {
+      "schema": "CpfLookup",
+      "description": "Mapping from CPF to public user info."
+    }
+  }
+}
