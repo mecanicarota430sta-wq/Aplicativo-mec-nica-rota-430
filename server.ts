@@ -114,7 +114,10 @@ async function startServer() {
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
+  const isProd = process.env.NODE_ENV === "production";
+
+  if (!isProd) {
+    console.log("[Dev] Starting with Vite middleware...");
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -123,15 +126,24 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     // In production, serve from the same directory as the server file since it's bundled in dist/
-    const distPath = __dirname;
+    const distPath = path.resolve(__dirname);
     console.log(`[Production] Serving static files from: ${distPath}`);
-    app.use(express.static(distPath));
+    
+    // Serve static files with caching
+    app.use(express.static(distPath, {
+      maxAge: '1d',
+      index: false
+    }));
+
     app.get('*', (req, res) => {
+      // Don't serve API routes as HTML
+      if (req.path.startsWith('/api/')) return res.status(404).json({ error: "API route not found" });
+
       const indexPath = path.join(distPath, 'index.html');
       res.sendFile(indexPath, (err) => {
         if (err) {
           console.error(`[Production] Error sending index.html from ${indexPath}:`, err);
-          res.status(500).send("Error loading application");
+          res.status(500).send("Sistema em manutenção. Por favor, recarregue a página em instantes.");
         }
       });
     });

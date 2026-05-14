@@ -87,8 +87,8 @@ export function Layout({ user, config }: LayoutProps) {
       fetchReminders();
       checkAndSyncCpf();
       
-      const reminderInterval = setInterval(fetchReminders, 1000 * 60 * 5); // 5 mins
-      const syncInterval = setInterval(checkAndSyncCpf, 1000 * 60); // 1 min
+      const reminderInterval = setInterval(fetchReminders, 1000 * 60 * 15); // 15 mins (less frequent)
+      const syncInterval = setInterval(checkAndSyncCpf, 1000 * 60 * 5); // 5 mins (less frequent)
 
       return () => {
         clearInterval(reminderInterval);

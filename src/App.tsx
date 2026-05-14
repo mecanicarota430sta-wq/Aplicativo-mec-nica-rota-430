@@ -24,6 +24,7 @@ export default function App() {
     const [user, setUser] = useState<UserProfile | null>(null);
     const [config, setConfig] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [initError, setInitError] = useState<string | null>(null);
 
     // Track if lastActive was updated this session to avoid redundant updates
     const lastActiveUpdatedRef = useRef(false);
@@ -32,6 +33,17 @@ export default function App() {
       let unsubscribeAuth: (() => void) | null = null;
       let unsubscribeProfile: (() => void) | null = null;
       
+      // Safety timeout to prevent permanent blank screen if Firebase hangs
+      const timeoutId = setTimeout(() => {
+        setLoading((currentLoading) => {
+          if (currentLoading) {
+            console.warn("App initialization timeout - forcing load state check");
+            return false;
+          }
+          return currentLoading;
+        });
+      }, 10000);
+
       async function initialize() {
         try {
           const c = await getSystemConfig();
@@ -95,6 +107,7 @@ export default function App() {
                   }
                 }
                 setLoading(false);
+                clearTimeout(timeoutId);
               }, (err) => {
                 console.error("Erro ao ouvir perfil:", err);
                 if (firebaseUser.email?.toLowerCase() === 'mecanicarota430sta@gmail.com') {
@@ -107,22 +120,27 @@ export default function App() {
                     } as UserProfile);
                 }
                 setLoading(false);
+                clearTimeout(timeoutId);
               });
             } else {
               setUser(null);
               setLoading(false);
+              clearTimeout(timeoutId);
               lastActiveUpdatedRef.current = false;
             }
           });
         } catch (error) {
           console.error("Error initializing app:", error);
+          setInitError("Falha na conexão com o servidor.");
           setLoading(false);
+          clearTimeout(timeoutId);
         }
       }
       
       initialize();
     
     return () => {
+      clearTimeout(timeoutId);
       if (unsubscribeAuth) unsubscribeAuth();
       if (unsubscribeProfile) unsubscribeProfile();
     };
@@ -139,9 +157,38 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-black">
-        <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin mb-4"></div>
-        <p className="text-white font-display font-bold tracking-widest text-xs uppercase animate-pulse">Iniciando Sistema...</p>
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-black overflow-hidden select-none">
+        <div className="relative">
+          {/* Outer glow */}
+          <div className="absolute inset-0 bg-white/20 blur-3xl rounded-full scale-150 animate-pulse"></div>
+          
+          <div className="relative z-10 flex flex-col items-center">
+            {/* Logo placeholder or icon if we have one */}
+            <div className="w-24 h-24 mb-8 relative flex items-center justify-center">
+               <div className="absolute inset-0 border-4 border-white/10 rounded-full"></div>
+               <div className="absolute inset-0 border-4 border-t-white rounded-full animate-spin"></div>
+               <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-black font-black text-2xl shadow-xl">
+                 R
+               </div>
+            </div>
+            
+            <div className="text-center space-y-2">
+              <h1 className="text-white font-display font-black tracking-[0.2em] text-lg uppercase">Rota 430</h1>
+              <div className="flex items-center justify-center gap-1">
+                <span className="w-1 h-1 bg-white/20 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="w-1 h-1 bg-white/40 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="w-1 h-1 bg-white/20 rounded-full animate-bounce"></span>
+              </div>
+              <p className="text-white/30 text-[10px] font-bold uppercase tracking-widest pt-4">Iniciando ambiente seguro</p>
+            </div>
+          </div>
+        </div>
+
+        {initError && (
+          <div className="absolute bottom-12 px-6 py-3 bg-red-500/10 border border-red-500/20 rounded-2xl">
+            <p className="text-red-400 text-xs font-bold">{initError}</p>
+          </div>
+        )}
       </div>
     );
   }

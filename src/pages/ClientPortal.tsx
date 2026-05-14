@@ -165,15 +165,11 @@ export default function ClientPortal({ user }: { user: UserProfile }) {
     fetchData();
   }, [user.uid]);
 
-  if (loading || isSyncing) {
+  if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-        {isSyncing && (
-          <p className="text-gray-500 text-xs font-bold uppercase tracking-widest animate-pulse">
-            Verificando histórico e pontos...
-          </p>
-        )}
+        <div className="w-12 h-12 border-4 border-blue-600/10 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+        <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest animate-pulse">Sincronizando portal...</p>
       </div>
     );
   }
