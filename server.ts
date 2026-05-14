@@ -125,13 +125,16 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // In production, serve from the same directory as the server file since it's bundled in dist/
+    // Determine distPath - explicitly use process.cwd() or similar if __dirname is tricky
+    // But since server.cjs is in dist/, __dirname IS the dist folder.
     const distPath = path.resolve(__dirname);
-    console.log(`[Production] Serving static files from: ${distPath}`);
+    console.log(`[Production] Server directory (__dirname): ${distPath}`);
+    const indexPath = path.join(distPath, 'index.html');
+    console.log(`[Production] Expected index.html path: ${indexPath}`);
     
-    // Serve static files with caching
+    // Serve static files (assets, etc)
     app.use(express.static(distPath, {
-      maxAge: '1d',
+      maxAge: '1h', // Shorter cache during debug
       index: false
     }));
 
@@ -139,11 +142,10 @@ async function startServer() {
       // Don't serve API routes as HTML
       if (req.path.startsWith('/api/')) return res.status(404).json({ error: "API route not found" });
 
-      const indexPath = path.join(distPath, 'index.html');
       res.sendFile(indexPath, (err) => {
         if (err) {
-          console.error(`[Production] Error sending index.html from ${indexPath}:`, err);
-          res.status(500).send("Sistema em manutenção. Por favor, recarregue a página em instantes.");
+          console.error(`[Production] Failed to send index.html:`, err);
+          res.status(500).send("Erro interno ou sistema em manutenção. Recarregue em instantes.");
         }
       });
     });
