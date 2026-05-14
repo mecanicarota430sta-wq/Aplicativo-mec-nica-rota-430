@@ -2,14 +2,25 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { getMessaging } from 'firebase/messaging';
+import { getMessaging, isSupported } from 'firebase/messaging';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
-export const messaging = typeof window !== 'undefined' ? getMessaging(app) : null;
+
+export let messaging: any = null;
+
+isSupported().then((supported) => {
+  if (supported) {
+    messaging = getMessaging(app);
+  } else {
+    console.warn("Firebase Messaging is not supported in this browser.");
+  }
+}).catch((err) => {
+  console.warn("Error checking Firebase Messaging support:", err);
+});
 
 async function testConnection() {
   try {
