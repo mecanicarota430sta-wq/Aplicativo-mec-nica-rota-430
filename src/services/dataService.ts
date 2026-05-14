@@ -638,14 +638,14 @@ export async function getSystemConfig() {
     if (snap.exists()) return snap.data();
     return {
       logoUrl: '',
-      shopName: 'Mecânica Rota 435',
+      shopName: 'Mecânica Rota 430',
       whatsappTemplate: 'Olá {{name}}, faz {{time}} que você realizou o serviço de {{service}} no seu veículo {{vehicle}} (Placa {{plate}}). Passando para lembrar que pode ser o momento de uma nova revisão na {{shop}}! Como está o desempenho do carro?'
     };
   } catch (err) {
     console.error("Error getting system config:", err);
     return {
       logoUrl: '',
-      shopName: 'Mecânica Rota 435'
+      shopName: 'Mecânica Rota 430'
     };
   }
 }

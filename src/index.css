@@ -21,3 +21,15 @@
   --color-brand-black: #000000;
   --color-brand-white: #ffffff;
 }
+
+@keyframes dash {
+  0% {
+    stroke-dashoffset: 400;
+  }
+  50% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: -400;
+  }
+}
