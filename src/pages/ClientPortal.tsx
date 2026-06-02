@@ -103,19 +103,28 @@ export default function ClientPortal({ user }: { user: UserProfile }) {
     async function fetchData() {
       // 0. CHECK FOR ORPHANED DATA (Self-healing migration)
       const isBootstrapAdmin = user.email?.toLowerCase() === 'mecanicarota430sta@gmail.com';
-      if (user.role === UserRole.CLIENT && !isBootstrapAdmin && sessionStorage.getItem(`sync_${user.uid}`) !== 'done') {
+      const syncKey = `sync_${user.uid}`;
+      const hasSynced = localStorage.getItem(syncKey);
+      console.log(`[ClientPortal] Checking sync for ${user.uid}: hasSynced=${hasSynced}`);
+      
+      if (user.role === UserRole.CLIENT && !isBootstrapAdmin && hasSynced !== 'done') {
         setIsSyncing(true);
         try {
+          console.log("[ClientPortal] Running recoverOrphanedData...");
           const merged = await recoverOrphanedData(user.uid, user.cpf, user.email);
-          sessionStorage.setItem(`sync_${user.uid}`, 'done');
+          localStorage.setItem(syncKey, 'done');
           if (merged) {
             console.log("[ClientPortal] Data synchronization complete.");
+          } else {
+            console.log("[ClientPortal] No data to merge.");
           }
         } catch (err) {
           console.error("[ClientPortal] Sync error:", err);
         } finally {
           setIsSyncing(false);
         }
+      } else {
+        console.log("[ClientPortal] Sync skipped.");
       }
 
       try {
