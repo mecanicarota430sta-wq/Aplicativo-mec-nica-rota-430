@@ -112,6 +112,38 @@ async function startServer() {
     }
   });
 
+  // API Route for Dynamic Manifest
+  app.get("/manifest.json", async (req, res) => {
+    try {
+      const configDoc = await getWebLibDoc(webLibDoc(webDb, 'system', 'config'));
+      const config = configDoc.exists() ? configDoc.data() : { logoUrl: '', shopName: 'Mecânica Rota 430' };
+      
+      const manifest = {
+        "name": config.shopName || "Mecânica Rota 430",
+        "short_name": "Rota 430",
+        "description": "Sistema de Gerenciamento para Oficinas Mecânicas",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#000000",
+        "theme_color": "#000000",
+        "icons": [
+          {
+            "src": config.logoUrl || "/icon.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+          }
+        ]
+      };
+      res.setHeader("Content-Type", "application/json");
+      res.json(manifest);
+    } catch (e) {
+      console.error("Error generating manifest:", e);
+      // Fallback
+      res.sendFile(path.join(path.resolve(__dirname), 'index.html')); 
+    }
+  });
+
   // Vite middleware for development
   const isProd = process.env.NODE_ENV === "production";
 
