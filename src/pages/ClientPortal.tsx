@@ -138,13 +138,9 @@ export default function ClientPortal({ user }: { user: UserProfile }) {
           orderBy('createdAt', 'desc'),
           limit(10)
         );
-        const osSnap = await getDocs(osQuery);
-        setOsHistory(osSnap.docs.map(d => ({ id: d.id, ...d.data() } as WorkOrder)));
 
         // Get Vehicles
         const vQuery = query(collection(db, 'vehicles'), where('clientId', '==', user.uid));
-        const vSnap = await getDocs(vQuery);
-        setVehicles(vSnap.docs.map(d => ({ id: d.id, ...d.data() } as Vehicle)));
 
         // Get Public Announcements
         const aQuery = query(
@@ -153,8 +149,6 @@ export default function ClientPortal({ user }: { user: UserProfile }) {
           orderBy('createdAt', 'desc'),
           limit(3)
         );
-        const aSnap = await getDocs(aQuery);
-        setAnnouncements(aSnap.docs.map(d => ({ id: d.id, ...d.data() } as Announcement)));
 
         // Get Approved Redemptions
         const rQuery = query(
@@ -163,7 +157,17 @@ export default function ClientPortal({ user }: { user: UserProfile }) {
           where('status', '==', 'APPROVED'),
           orderBy('createdAt', 'desc')
         );
-        const rSnap = await getDocs(rQuery);
+
+        const [osSnap, vSnap, aSnap, rSnap] = await Promise.all([
+          getDocs(osQuery),
+          getDocs(vQuery),
+          getDocs(aQuery),
+          getDocs(rQuery)
+        ]);
+
+        setOsHistory(osSnap.docs.map(d => ({ id: d.id, ...d.data() } as WorkOrder)));
+        setVehicles(vSnap.docs.map(d => ({ id: d.id, ...d.data() } as Vehicle)));
+        setAnnouncements(aSnap.docs.map(d => ({ id: d.id, ...d.data() } as Announcement)));
         setActiveRedemptions(rSnap.docs.map(d => ({ id: d.id, ...d.data() } as Redemption)));
       } catch (err) {
         console.error("[ClientPortal] Error fetching data:", err);
