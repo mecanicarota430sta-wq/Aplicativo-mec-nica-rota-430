@@ -18,6 +18,13 @@ import { useNavigate } from 'react-router-dom';
 
 export default function Profile({ user, onProfileUpdate }: { user: UserProfile, onProfileUpdate: (p: UserProfile) => void }) {
   const navigate = useNavigate();
+  const handleBack = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email || '');
   const [phone, setPhone] = useState(user.phone || '');
@@ -114,7 +121,7 @@ export default function Profile({ user, onProfileUpdate }: { user: UserProfile, 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <button 
-        onClick={() => navigate(-1)}
+        onClick={handleBack}
         className="flex items-center gap-2 text-gray-500 hover:text-black mb-8 transition-colors group"
       >
         <div className="p-2 bg-gray-100 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-all">

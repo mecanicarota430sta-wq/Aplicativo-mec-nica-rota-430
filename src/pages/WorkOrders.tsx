@@ -57,7 +57,7 @@ export default function WorkOrders() {
       }
 
       const snapshot = await getDocs(q);
-      const orders = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as WorkOrder));
+      const orders = snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any) } as WorkOrder));
       
       // In-memory sorting to prevent requiring composite index on status + createdAt desc
       orders.sort((a, b) => {

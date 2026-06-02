@@ -31,6 +31,13 @@ import {
 export default function OSDetails({ user }: { user: UserProfile }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const handleBack = () => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate(user.role === UserRole.CLIENT ? '/' : '/os');
+    }
+  };
   const [os, setOs] = useState<WorkOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -193,7 +200,7 @@ export default function OSDetails({ user }: { user: UserProfile }) {
       }
     } catch (err) {
       console.error(err);
-      alert('Erro ao atualizar status.');
+      setFinishError(err instanceof Error ? err.message : 'Erro ao atualizar status.');
     } finally {
       setStatusLoading(false);
     }
@@ -207,10 +214,18 @@ export default function OSDetails({ user }: { user: UserProfile }) {
       navigate('/ordens');
     } catch (err) {
       console.error(err);
-      alert('Erro ao excluir O.S.');
+      setFinishError(err instanceof Error ? err.message : 'Erro ao excluir O.S.');
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleNotifyWhatsApp = () => {
+    if (!clientProfile?.phone) return;
+    const phone = clientProfile.phone.replace(/\D/gi, "");
+    const message = `Olá, ${clientName}! 🛠️\n\nSua Ordem de Serviço foi aberta com sucesso na ${config?.shopName || 'Mecânica Rota 430'}.\n\n📌 Número da O.S.: ${os?.seqId || 'N/A'}\n🚗 Veículo: ${vehicle?.brand || ''} ${vehicle?.model || ''} (${vehicle?.licensePlate || ''})\n📊 Status: Aberta\n\nVocê pode acompanhar todo o andamento de seu veículo diretamente em nosso Portal do Cliente ou entrando em contato.\n\nObrigado pela preferência!`;
+    const waUrl = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
   };
 
   const handleEvidenceUpload = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -241,7 +256,7 @@ export default function OSDetails({ user }: { user: UserProfile }) {
       setEvidencePhotos(updatedPhotos);
     } catch (err) {
       console.error("Error uploading evidence:", err);
-      alert("Erro ao subir fotos de evidência.");
+      setFinishError(err instanceof Error ? err.message : 'Erro ao subir fotos de evidência.');
     } finally {
       setEvidenceUploading(false);
       e.target.value = '';
@@ -336,7 +351,7 @@ export default function OSDetails({ user }: { user: UserProfile }) {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       if (selectedFile.size > 50 * 1024 * 1024) {
-        alert("O arquivo é muito grande (Máximo 50MB)");
+        setFinishError("O arquivo é muito grande (Máximo 50MB)");
         return;
       }
       setFile(selectedFile);
@@ -439,7 +454,6 @@ export default function OSDetails({ user }: { user: UserProfile }) {
       console.log(`[UI] Processo total levou ${duration}s`);
 
       clearTimeout(timeoutId);
-      alert('Ordem de Serviço finalizada com sucesso!');
       navigate('/');
     } catch (error: any) {
       clearTimeout(timeoutId);
@@ -476,7 +490,7 @@ export default function OSDetails({ user }: { user: UserProfile }) {
     <div className="max-w-4xl mx-auto space-y-6 pb-20 md:pb-8">
       <div className="flex items-center justify-between">
         <button 
-          onClick={() => navigate(-1)}
+          onClick={handleBack}
           className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors font-bold uppercase text-[10px] tracking-widest"
         >
           <ArrowLeft size={16} />
@@ -519,6 +533,13 @@ export default function OSDetails({ user }: { user: UserProfile }) {
                 </span>
               )}
             </div>
+            {finishError && (
+              <div className="my-4 p-4 bg-red-500/10 text-red-300 border border-red-500/20 rounded-2xl text-xs font-medium max-w-lg">
+                <span className="font-bold block mb-1">⚠️ ATENÇÃO:</span>
+                {finishError}
+                <button onClick={() => setFinishError(null)} className="block mt-2 font-black uppercase tracking-widest text-[9px] text-red-400 underline hover:text-red-300">Ocultar</button>
+              </div>
+            )}
             <h1 className="text-3xl font-display font-bold">{os.seqId || `O.S. #${os.id?.slice(-6).toUpperCase()}`}</h1>
             <p className="text-gray-400 text-xs mt-2 font-medium">
               Criada em: {os.createdAt ? new Date((os.createdAt as any).toDate?.() || os.createdAt).toLocaleDateString() : 'Aguardando...'}
@@ -560,6 +581,15 @@ export default function OSDetails({ user }: { user: UserProfile }) {
                         </p>
                       )}
                     </div>
+                    {clientProfile?.phone && user.role !== UserRole.CLIENT && (
+                      <button 
+                        onClick={handleNotifyWhatsApp}
+                        className="mt-4 w-full flex items-center justify-center gap-2 py-2 px-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors border border-emerald-100 shadow-sm shadow-emerald-50"
+                      >
+                        <Phone size={11} className="text-emerald-600" />
+                        Notificar via WhatsApp
+                      </button>
+                    )}
                 </div>
 
                 {/* Vehicle Box */}

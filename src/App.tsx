@@ -146,6 +146,19 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (config?.logoUrl) {
+      let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
+      link.type = 'image/png';
+      link.href = config.logoUrl;
+    }
+  }, [config]);
+
   const refreshConfig = async () => {
     try {
       const c = await getSystemConfig();
