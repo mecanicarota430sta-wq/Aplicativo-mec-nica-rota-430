@@ -131,12 +131,10 @@ export default function ClientPortal({ user }: { user: UserProfile }) {
         const configData = await getSystemConfig();
         setConfig(configData);
 
-        // Get OS History
+        // Get OS History (simple query, no order-by composite index needed)
         const osQuery = query(
           collection(db, 'workOrders'), 
-          where('clientId', '==', user.uid),
-          orderBy('createdAt', 'desc'),
-          limit(10)
+          where('clientId', '==', user.uid)
         );
 
         // Get Vehicles
@@ -145,17 +143,13 @@ export default function ClientPortal({ user }: { user: UserProfile }) {
         // Get Public Announcements
         const aQuery = query(
           collection(db, 'announcements'), 
-          where('type', '==', 'PUBLIC'),
-          orderBy('createdAt', 'desc'),
-          limit(3)
+          where('type', '==', 'PUBLIC')
         );
 
-        // Get Approved Redemptions
+        // Get Approved Redemptions (simple query, no composite indexes needed)
         const rQuery = query(
           collection(db, 'redemptions'),
-          where('clientId', '==', user.uid),
-          where('status', '==', 'APPROVED'),
-          orderBy('createdAt', 'desc')
+          where('clientId', '==', user.uid)
         );
 
         const [osSnap, vSnap, aSnap, rSnap] = await Promise.all([
@@ -165,10 +159,36 @@ export default function ClientPortal({ user }: { user: UserProfile }) {
           getDocs(rQuery)
         ]);
 
-        setOsHistory(osSnap.docs.map(d => ({ id: d.id, ...d.data() } as WorkOrder)));
+        // Process OS History in memory
+        const oList = osSnap.docs.map(d => ({ id: d.id, ...d.data() } as WorkOrder));
+        oList.sort((a, b) => {
+          const tA = (a.createdAt as any)?.toDate?.()?.getTime() || new Date(a.createdAt).getTime() || 0;
+          const tB = (b.createdAt as any)?.toDate?.()?.getTime() || new Date(b.createdAt).getTime() || 0;
+          return tB - tA;
+        });
+
+        // Process Announcements in memory
+        const aList = aSnap.docs.map(d => ({ id: d.id, ...d.data() } as Announcement));
+        aList.sort((a, b) => {
+          const tA = (a.createdAt as any)?.toDate?.()?.getTime() || new Date(a.createdAt).getTime() || 0;
+          const tB = (b.createdAt as any)?.toDate?.()?.getTime() || new Date(b.createdAt).getTime() || 0;
+          return tB - tA;
+        });
+
+        // Filter and Process Redemptions in memory
+        const rList = rSnap.docs
+          .map(d => ({ id: d.id, ...d.data() } as Redemption))
+          .filter(r => r.status === 'APPROVED');
+        rList.sort((a, b) => {
+          const tA = (a.createdAt as any)?.toDate?.()?.getTime() || new Date(a.createdAt).getTime() || 0;
+          const tB = (b.createdAt as any)?.toDate?.()?.getTime() || new Date(b.createdAt).getTime() || 0;
+          return tB - tA;
+        });
+
+        setOsHistory(oList.slice(0, 10));
         setVehicles(vSnap.docs.map(d => ({ id: d.id, ...d.data() } as Vehicle)));
-        setAnnouncements(aSnap.docs.map(d => ({ id: d.id, ...d.data() } as Announcement)));
-        setActiveRedemptions(rSnap.docs.map(d => ({ id: d.id, ...d.data() } as Redemption)));
+        setAnnouncements(aList.slice(0, 3));
+        setActiveRedemptions(rList);
       } catch (err) {
         console.error("[ClientPortal] Error fetching data:", err);
       } finally {
@@ -362,7 +382,7 @@ export default function ClientPortal({ user }: { user: UserProfile }) {
                         </span>
                       )}
                       <p className="text-xs text-gray-400 capitalize">
-                         {new Date(os.createdAt?.toDate?.() || os.createdAt).toLocaleDateString('pt-BR')} 
+                         {os.createdAt ? new Date((os.createdAt as any).toDate?.() || os.createdAt).toLocaleDateString('pt-BR') : 'Aguardando...'} 
                          {' • '} 
                          {os.services ? os.services[0] : 'Serviço GERAL'}
                       </p>

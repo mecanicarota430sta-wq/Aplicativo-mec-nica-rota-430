@@ -427,7 +427,7 @@ export default function OSDetails({ user }: { user: UserProfile }) {
       if (notifyWhatsApp && clientProfile?.phone) {
         try {
           const phone = clientProfile.phone.replace(/\D/g, '');
-          const message = `Olá ${clientName}! Sua Ordem de Serviço na ${config?.shopName || 'Mecânica Rota 430'} foi finalizada. 🛠️\n\n✅ Status: Concluída\n💰 Valor Total: R$ ${finalValue.toFixed(2)}\n⭐ Pontos Fidelidade: +${Math.floor(finalValue)}\n\n📄 Você pode conferir os detalhes aqui: ${pdfUrl || 'Disponível no Portal do Cliente'}\n\nObrigado pela confiança!`;
+          const message = `Olá ${clientName}! Sua Ordem de Serviço na ${config?.shopName || 'Mecânica Rota 430'} foi finalizada. 🛠️\n\n✅ Status: Concluída\n💰 Valor Total: R$ ${(finalValue || 0).toFixed(2)}\n⭐ Pontos Fidelidade: +${Math.floor(finalValue || 0)}\n\n📄 Você pode conferir os detalhes aqui: ${pdfUrl || 'Disponível no Portal do Cliente'}\n\nObrigado pela confiança!`;
           const waUrl = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
           window.open(waUrl, '_blank');
         } catch (waErr) {
@@ -521,7 +521,7 @@ export default function OSDetails({ user }: { user: UserProfile }) {
             </div>
             <h1 className="text-3xl font-display font-bold">{os.seqId || `O.S. #${os.id?.slice(-6).toUpperCase()}`}</h1>
             <p className="text-gray-400 text-xs mt-2 font-medium">
-              Criada em: {new Date(os.createdAt?.toDate?.() || os.createdAt).toLocaleDateString()}
+              Criada em: {os.createdAt ? new Date((os.createdAt as any).toDate?.() || os.createdAt).toLocaleDateString() : 'Aguardando...'}
               {vehicle && ` • ${vehicle.brand} ${vehicle.model}`}
             </p>
           </div>
@@ -529,7 +529,7 @@ export default function OSDetails({ user }: { user: UserProfile }) {
           <div className="flex items-center gap-4">
              <div className="text-right hidden md:block">
                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Previsto</p>
-               <p className="text-2xl font-display font-bold">R$ {finalValue.toFixed(2)}</p>
+               <p className="text-2xl font-display font-bold">R$ {(finalValue || 0).toFixed(2)}</p>
              </div>
           </div>
         </div>
@@ -715,7 +715,7 @@ export default function OSDetails({ user }: { user: UserProfile }) {
                 <div className="flex items-center gap-2">
                    <SettingsIcon size={12} strokeWidth={3} /> Itens Executados
                 </div>
-                {!isCompleted && <span>R$ {finalValue.toFixed(2)}</span>}
+                {!isCompleted && <span>R$ {(finalValue || 0).toFixed(2)}</span>}
               </h2>
               
               <div className="space-y-3 mb-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
@@ -788,7 +788,7 @@ export default function OSDetails({ user }: { user: UserProfile }) {
                                   className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center justify-between border-b border-gray-50 last:border-0"
                                 >
                                   <span className="text-sm font-bold text-gray-800 uppercase tracking-tight">{service.name}</span>
-                                  <span className="text-xs font-mono font-bold text-blue-600">R$ {service.price.toFixed(2)}</span>
+                                  <span className="text-xs font-mono font-bold text-blue-600">R$ {(service.price || 0).toFixed(2)}</span>
                                 </button>
                               ))}
                             {catalog.filter(s => s.name.toLowerCase().includes(newItemDesc.toLowerCase())).length === 0 && (

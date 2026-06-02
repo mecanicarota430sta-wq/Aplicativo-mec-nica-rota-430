@@ -300,7 +300,17 @@ export async function calculateBirthdayReminders(): Promise<MaintenanceReminder[
   }
 }
 
-export async function createWorkOrder(clientId: string, vehicleId: string) {
+export async function createWorkOrder(
+  clientId: string, 
+  vehicleId: string, 
+  initialData?: { 
+    services?: string[]; 
+    items?: { description: string; price: number }[]; 
+    totalValue?: number; 
+    totalPoints?: number; 
+    notes?: string; 
+  }
+) {
   const counterRef = doc(db, 'system', 'counters');
   const osCollectionRef = collection(db, 'workOrders');
 
@@ -321,10 +331,11 @@ export async function createWorkOrder(clientId: string, vehicleId: string) {
         clientId,
         vehicleId,
         status: OSStatus.OPEN,
-        services: [],
-        items: [],
-        totalValue: 0,
-        totalPoints: 0,
+        services: initialData?.services || [],
+        items: initialData?.items || [],
+        totalValue: initialData?.totalValue || 0,
+        totalPoints: initialData?.totalPoints || 0,
+        notes: initialData?.notes || '',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };

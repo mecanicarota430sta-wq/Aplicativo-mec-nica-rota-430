@@ -49,14 +49,23 @@ export default function WorkOrders() {
   const fetchWorkOrders = async () => {
     setLoading(true);
     try {
-      let q = query(collection(db, 'workOrders'), orderBy('createdAt', 'desc'));
-      
+      let q;
       if (filterStatus !== 'all') {
-        q = query(collection(db, 'workOrders'), where('status', '==', filterStatus), orderBy('createdAt', 'desc'));
+        q = query(collection(db, 'workOrders'), where('status', '==', filterStatus));
+      } else {
+        q = query(collection(db, 'workOrders'));
       }
 
       const snapshot = await getDocs(q);
       const orders = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as WorkOrder));
+      
+      // In-memory sorting to prevent requiring composite index on status + createdAt desc
+      orders.sort((a, b) => {
+        const tA = (a.createdAt as any)?.toDate?.()?.getTime() || new Date(a.createdAt).getTime() || 0;
+        const tB = (b.createdAt as any)?.toDate?.()?.getTime() || new Date(b.createdAt).getTime() || 0;
+        return tB - tA;
+      });
+
       setWorkOrders(orders);
 
       // Fetch plates and client names for these orders
@@ -121,12 +130,24 @@ export default function WorkOrders() {
     try {
       const result = await createWorkOrder(selectedClient.uid, vehicleId);
       
+      const vehicleInfo = vehicles.find(v => v.id === vehicleId);
+
+      // Notify Client (Push)
+      try {
+        await sendPushNotification(
+          [selectedClient.uid],
+          "🛠️ Ordem de Serviço Aberta",
+          `Uma nova Ordem de Serviço foi aberta para o seu veículo ${vehicleInfo?.brand || ''} ${vehicleInfo?.model || ''} (${vehicleInfo?.licensePlate || ''}). ID: ${result.seqId}`,
+          { osId: result.id }
+        );
+      } catch (notifyClientErr) {
+        console.warn("Failed to notify client:", notifyClientErr);
+      }
+
       // Notify staff (Mechanics and Admins)
       try {
         const staffSnap = await getDocs(query(collection(db, 'users'), where('role', 'in', [UserRole.ADMIN, UserRole.MECHANIC])));
         const staffIds = staffSnap.docs.map(d => d.id);
-        
-        const vehicleInfo = vehicles.find(v => v.id === vehicleId);
         
         await sendPushNotification(
           staffIds,
@@ -151,10 +172,10 @@ export default function WorkOrders() {
 
     const headers = ['Data', 'Cliente', 'Placa', 'Valor (R$)', 'Status', 'Mecânico'];
     const rows = filteredOrders.map(os => {
-      const date = new Date(os.createdAt?.toDate?.() || os.createdAt).toLocaleDateString('pt-BR');
+      const date = os.createdAt ? new Date((os.createdAt as any).toDate?.() || os.createdAt).toLocaleDateString('pt-BR') : 'Aguardando';
       const client = clientNames[os.clientId] || 'N/A';
       const plate = plates[os.vehicleId] || 'N/A';
-      const value = os.totalValue.toFixed(2).replace('.', ',');
+      const value = (os.totalValue || 0).toFixed(2).replace('.', ',');
       const status = getStatusConfig(os.status).label;
       const mechanic = os.mechanicName || 'Aguardando';
 
@@ -287,10 +308,10 @@ export default function WorkOrders() {
                       </div>
                       <div className="flex items-center gap-3 mt-1">
                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                           <Calendar size={10} /> {new Date(os.createdAt?.toDate?.() || os.createdAt).toLocaleDateString('pt-BR')}
+                           <Calendar size={10} /> {os.createdAt ? new Date((os.createdAt as any).toDate?.() || os.createdAt).toLocaleDateString('pt-BR') : 'Aguardando...'}
                          </span>
                          <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                           <Clock size={10} /> {new Date(os.createdAt?.toDate?.() || os.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                           <Clock size={10} /> {os.createdAt ? new Date((os.createdAt as any).toDate?.() || os.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Aguardando...'}
                          </span>
                       </div>
                     </div>

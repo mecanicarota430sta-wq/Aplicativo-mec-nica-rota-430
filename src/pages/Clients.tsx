@@ -6,7 +6,7 @@ import { Users, Plus, Search, Edit2, Trash2, Phone, Mail, User as UserIcon, Car,
 import { motion, AnimatePresence } from 'motion/react';
 import { CAR_BRANDS, MOTO_BRANDS } from '../constants';
 import { auth } from '../lib/firebase';
-import { syncCpfLookup } from '../services/dataService';
+import { syncCpfLookup, createWorkOrder, sendPushNotification } from '../services/dataService';
 
 export default function Clients() {
   const [clients, setClients] = useState<UserProfile[]>([]);
@@ -141,20 +141,49 @@ export default function Clients() {
         }
       });
 
-      await addDoc(collection(db, 'workOrders'), {
-        clientId: selectedClient?.uid,
-        vehicleId: osVehicleId,
+      if (!selectedClient?.uid) return;
+
+      const result = await createWorkOrder(selectedClient.uid, osVehicleId, {
         services: osSelectedServices,
-        status: OSStatus.OPEN,
         totalValue,
         totalPoints,
-        notes: osNotes,
-        createdAt: serverTimestamp()
+        notes: osNotes
       });
+
+      // Notify Client (Push)
+      try {
+        const vInfo = clientVehicles.find(v => v.id === osVehicleId);
+        await sendPushNotification(
+          [selectedClient.uid],
+          "🛠️ Ordem de Serviço Aberta",
+          `Uma nova Ordem de Serviço foi aberta para o seu veículo ${vInfo?.brand || ''} ${vInfo?.model || ''} (${vInfo?.licensePlate || ''}). ID: ${result.seqId}`,
+          { osId: result.id }
+        );
+      } catch (notifyClientErr) {
+        console.warn("Failed to notify client:", notifyClientErr);
+      }
+
+      // Notify staff (Mechanics and Admins)
+      try {
+        const staffSnap = await getDocs(query(collection(db, 'users'), where('role', 'in', [UserRole.ADMIN, UserRole.MECHANIC])));
+        const staffIds = staffSnap.docs.map(d => d.id);
+        const vInfo = clientVehicles.find(v => v.id === osVehicleId);
+
+        await sendPushNotification(
+          staffIds,
+          "🆕 Nova Ordem de Serviço",
+          `Um novo serviço foi aberto para o veículo ${vInfo?.licensePlate || ''}. ID: ${result.seqId}`,
+          { osId: result.id }
+        );
+      } catch (staffNotifyErr) {
+        console.warn("Failed to notify staff:", staffNotifyErr);
+      }
+
       setIsOSModalOpen(false);
       alert('Ordem de Serviço aberta com sucesso!');
     } catch (error) {
       console.error("Error saving OS:", error);
+      alert('Erro ao abrir Ordem de Serviço.');
     } finally {
       setLoading(false);
     }
